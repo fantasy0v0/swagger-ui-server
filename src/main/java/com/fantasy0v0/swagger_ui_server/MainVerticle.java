@@ -34,10 +34,10 @@ public class MainVerticle extends AbstractVerticle {
     router.post("/" + FileName).handler(BodyHandler.create()).handler(this::updateSwaggerJson);
     router.route().handler(StaticHandler.create());
 
-    vertx.createHttpServer().requestHandler(router).listen(3000, http -> {
+    vertx.createHttpServer().requestHandler(router).listen(3001, http -> {
       if (http.succeeded()) {
         startPromise.complete();
-        System.out.println("HTTP server started on port 3000");
+        System.out.println("HTTP server started on port " + http.result().actualPort());
       } else {
         startPromise.fail(http.cause());
       }
