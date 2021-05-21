@@ -187,3 +187,5 @@ nbdist/
 
 .idea/
 build/
+
+file-uploads/
