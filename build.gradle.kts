@@ -55,3 +55,7 @@ tasks.withType<Test> {
 tasks.withType<JavaExec> {
   args = listOf("run", mainVerticleName)
 }
+
+tasks.withType<JavaCompile> {
+  options.encoding = "UTF-8"
+}
