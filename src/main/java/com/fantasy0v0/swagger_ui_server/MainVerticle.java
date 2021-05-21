@@ -88,9 +88,14 @@ public class MainVerticle extends AbstractVerticle {
     Set<FileUpload> uploads = ctx.fileUploads();
     FileUpload fileUpload = uploads.iterator().next();
     FileSystem fileSystem = vertx.fileSystem();
+
     fileSystem
       .readFile(fileUpload.uploadedFileName())
-      .compose(buffer -> fileSystem.writeFile(FileName, buffer)).onComplete(ar -> {
+      // 将上传的文件写入
+      .compose(buffer -> fileSystem.writeFile(FileName, buffer))
+      // 删除上传的文件
+      .compose(Void -> fileSystem.delete(fileUpload.uploadedFileName()))
+      .onComplete(ar -> {
       HttpServerResponse response = ctx.response();
         if (ar.succeeded()) {
           response.end();
