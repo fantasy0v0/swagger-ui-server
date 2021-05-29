@@ -59,3 +59,25 @@ tasks.withType<JavaExec> {
 tasks.withType<JavaCompile> {
   options.encoding = "UTF-8"
 }
+
+task<Delete>("deleteWebRoot") {
+  delete("./src/main/resources/webroot")
+}
+
+task<Exec>("buildUi") {
+  workingDir("./ui")
+  commandLine("cmd", "/c", "npm", "run", "build")
+
+  dependsOn("deleteWebRoot")
+}
+
+task<Copy>("copyUi") {
+  from("./ui/build")
+  into("./src/main/resources/webroot")
+
+  dependsOn("buildUi")
+}
+
+tasks.withType<ProcessResources> {
+  dependsOn("copyUi")
+}
