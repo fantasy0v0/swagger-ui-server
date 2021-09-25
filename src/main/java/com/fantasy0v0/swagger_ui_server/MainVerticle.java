@@ -28,20 +28,17 @@ public class MainVerticle extends AbstractVerticle {
       return;
     }
     byte[] bytes = resourceAsStream.readAllBytes();
-    this.writeSwaggerJson(vertx, Buffer.buffer(bytes));
-    Router router = Router.router(vertx);
-    router.get("/" + FileName).handler(this::getSwaggerJson);
-    router.post("/" + FileName).handler(BodyHandler.create()).handler(this::updateSwaggerJson);
-    router.route().handler(StaticHandler.create());
-
-    vertx.createHttpServer().requestHandler(router).listen(3001, http -> {
-      if (http.succeeded()) {
+    this.writeSwaggerJson(vertx, Buffer.buffer(bytes))
+      .compose(Void -> {
+        Router router = Router.router(vertx);
+        router.get("/" + FileName).handler(this::getSwaggerJson);
+        router.post("/" + FileName).handler(BodyHandler.create()).handler(this::updateSwaggerJson);
+        router.route().handler(StaticHandler.create());
+        return Future.succeededFuture(router);
+      }).compose(router -> vertx.createHttpServer().requestHandler(router).listen(3001)).onSuccess(http -> {
         startPromise.complete();
-        System.out.println("HTTP server started on port " + http.result().actualPort());
-      } else {
-        startPromise.fail(http.cause());
-      }
-    });
+        System.out.println("HTTP server started on port " + http.actualPort());
+      }).onFailure(startPromise::fail);
   }
 
   @Override
@@ -58,6 +55,7 @@ public class MainVerticle extends AbstractVerticle {
 
   /**
    * 获取当前的json
+   *
    * @param ctx ctx
    */
   private void getSwaggerJson(RoutingContext ctx) {
@@ -82,6 +80,7 @@ public class MainVerticle extends AbstractVerticle {
 
   /**
    * 更新SwaggerJson
+   *
    * @param ctx ctx
    */
   private void updateSwaggerJson(RoutingContext ctx) {
@@ -96,7 +95,7 @@ public class MainVerticle extends AbstractVerticle {
       // 删除上传的文件
       .compose(Void -> fileSystem.delete(fileUpload.uploadedFileName()))
       .onComplete(ar -> {
-      HttpServerResponse response = ctx.response();
+        HttpServerResponse response = ctx.response();
         if (ar.succeeded()) {
           response.end();
         } else {
