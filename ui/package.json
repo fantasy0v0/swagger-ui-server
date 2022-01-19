@@ -43,5 +43,7 @@
   },
   "devDependencies": {
     "@types/swagger-ui-react": "^3.35.1"
-  }
+  },
+  "main": "index.js",
+  "license": "MIT"
 }
