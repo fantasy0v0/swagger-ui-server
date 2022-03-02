@@ -31,7 +31,12 @@ public class MainVerticle extends AbstractVerticle {
     this.writeSwaggerJson(vertx, Buffer.buffer(bytes))
       .compose(Void -> {
         Router router = Router.router(vertx);
-        router.get("/" + FileName).handler(this::getSwaggerJson);
+        // TODO 获取当前的服务列表
+        router.get("/services").handler(null);
+        // TODO 新增
+        router.post("/services").handler(null);
+        // TODO 获取对应服务的json文件
+        router.getWithRegex("/([a-zA-Z]+)\\.json" + FileName).handler(this::getSwaggerJson);
         router.post("/" + FileName).handler(BodyHandler.create()).handler(this::updateSwaggerJson);
         router.route().handler(StaticHandler.create());
         return Future.succeededFuture(router);

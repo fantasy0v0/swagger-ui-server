@@ -66,7 +66,7 @@ task<Delete>("deleteWebRoot") {
 
 task<Exec>("buildUi") {
   workingDir("./ui")
-  commandLine("cmd", "/c", "npm", "run", "build")
+  commandLine("cmd", "/c", "pnpm", "run", "build")
 
   dependsOn("deleteWebRoot")
 }
