@@ -36,7 +36,7 @@ public class MainVerticle extends AbstractVerticle {
         // TODO 新增
         router.post("/services").handler(null);
         // TODO 获取对应服务的json文件
-        router.getWithRegex("/([a-zA-Z]+)\\.json" + FileName).handler(this::getSwaggerJson);
+        router.getWithRegex("/(?<serviceName>[a-zA-Z]+)\\.json" + FileName).handler(this::getSwaggerJson);
         router.post("/" + FileName).handler(BodyHandler.create()).handler(this::updateSwaggerJson);
         router.route().handler(StaticHandler.create());
         return Future.succeededFuture(router);
