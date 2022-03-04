@@ -1,4 +1,4 @@
-import React, { ChangeEvent, MouseEvent, useState } from 'react';
+import React, { ChangeEvent, MouseEvent, useEffect, useState } from 'react';
 import './App.css';
 import SwaggerUI from "swagger-ui-react"
 import "swagger-ui-react/swagger-ui.css"
@@ -9,16 +9,15 @@ function App() {
 
   let [ currentService, setCurrentService ] = useState<string | undefined>(undefined);
 
-  let [ services, setServices ] = useState<ServiceName[]>([ "test", "fan" ]);
+  let [ services, setServices ] = useState<ServiceName[]>([]);
 
   function handleAddService(e: MouseEvent<HTMLButtonElement>) {
     const serviceName = prompt("请输入名称");
-    if (null == serviceName) {
+    if (null == serviceName || 0 === serviceName.length) {
       return;
     }
-    fetch("/services", {
-      method: "POST",
-      body: serviceName
+    fetch("/services?name=" + serviceName, {
+      method: "POST"
     }).then(res => {
       if (200 !== res.status) {
         alert("error. Check the console");
@@ -33,7 +32,7 @@ function App() {
     let file = e.target.files?.item(0);
     let formData = new FormData();
     formData.append('json', file!);
-    fetch("/swagger.json", {
+    fetch("/" + currentService + ".json", {
       method: "POST",
       body: formData
     }).then(res => {
@@ -49,24 +48,39 @@ function App() {
     });
   }
 
-  fetch("/services", {
-    method: "GET"
-  }).then(async res => {
-    if (200 !== res.status) {
-      alert("error. Check the console");
-      console.error('Error:', res);
-      return;
-    }
-    const text = await res.text();
-    const services: ServiceName[] = JSON.parse(text);
-    setServices(services);
-    if (services.length > 0) {
-      setCurrentService(services[0]);
-    }
-  });
+  useEffect(() => {
+    fetch("/services", {
+      method: "GET"
+    }).then(async res => {
+      if (200 !== res.status) {
+        alert("error. Check the console");
+        console.error('Error:', res);
+        return;
+      }
+      const text = await res.text();
+      const services: ServiceName[] = JSON.parse(text);
+      setServices(services);
+      if (services.length > 0) {
+        setCurrentService(services[0]);
+      }
+    });
+  }, []);
 
   function selectOnChange(e: ChangeEvent<HTMLSelectElement>) {
-    alert(e.target.value);
+    setCurrentService(e.target.value);
+  }
+
+  function deleteService() {
+    fetch("/services?name=" + currentService, {
+      method: "DELETE"
+    }).then(res => {
+      if (200 !== res.status) {
+        alert("error. Check the console");
+        console.error('Error:', res);
+        return;
+      }
+      window.location.reload();
+    });
   }
 
   const serviceOptions = services.map(service => {
@@ -77,9 +91,6 @@ function App() {
   if (currentService) {
     body = [
       <fieldset>
-        <div>
-          <button onClick={ handleAddService }>新增</button>
-        </div>
         <legend>服务信息</legend>
         <div>
           <select value={ currentService } onChange={ selectOnChange }>
@@ -87,6 +98,8 @@ function App() {
           </select>
           &nbsp;&nbsp;&nbsp;&nbsp;
           <input type="file" accept="application/json" onChange={ handleFileChange }/>
+          &nbsp;&nbsp;&nbsp;&nbsp;
+          <button onClick={ deleteService }>删除</button>
         </div>
       </fieldset>,
       <SwaggerUI url={ "/" + currentService + ".json" }/>
@@ -96,6 +109,9 @@ function App() {
   }
   return (
     <div className="App">
+      <div>
+        <button onClick={ handleAddService }>新增</button>
+      </div>
       { body }
     </div>
   );

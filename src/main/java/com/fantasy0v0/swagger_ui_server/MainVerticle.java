@@ -1,12 +1,11 @@
 package com.fantasy0v0.swagger_ui_server;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.file.FileSystem;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.FileUpload;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -20,6 +19,8 @@ public class MainVerticle extends AbstractVerticle {
 
   private final String FileName = "swagger.json";
 
+  private Buffer defaultSwaggerJson;
+
   @Override
   public void start(Promise<Void> startPromise) throws IOException {
     InputStream resourceAsStream = MainVerticle.class.getClassLoader().getResourceAsStream(FileName);
@@ -28,21 +29,29 @@ public class MainVerticle extends AbstractVerticle {
       return;
     }
     byte[] bytes = resourceAsStream.readAllBytes();
-    this.writeSwaggerJson(vertx, Buffer.buffer(bytes))
-      .compose(Void -> {
-        Router router = Router.router(vertx);
-        // TODO 获取当前的服务列表
-        router.get("/services").handler(null);
-        // TODO 新增
-        router.post("/services").handler(null);
-        // TODO 获取对应服务的json文件
-        router.getWithRegex("/(?<serviceName>[a-zA-Z]+)\\.json" + FileName).handler(this::getSwaggerJson);
-        router.post("/" + FileName).handler(BodyHandler.create()).handler(this::updateSwaggerJson);
-        router.route().handler(StaticHandler.create());
-        return Future.succeededFuture(router);
-      }).compose(router -> vertx.createHttpServer().requestHandler(router).listen(3001)).onSuccess(http -> {
-        startPromise.complete();
+    defaultSwaggerJson = Buffer.buffer(bytes);
+    Router router = Router.router(vertx);
+    // 静态文件
+    router.route().handler(StaticHandler.create());
+    // 获取当前的服务列表
+    router.get("/services").handler(this::getServices);
+    // 新增服务
+    router.post("/services").handler(this::createService);
+    // 删除服务
+    router.delete("/services").handler(this::deleteService);
+    // 获取对应服务的json文件
+    router.getWithRegex("/(?<serviceName>.+)\\.json")
+      .handler(this::getSwaggerJson);
+    // 更新对应的JSON文件
+    router.postWithRegex("/(?<serviceName>.+)\\.json")
+      .handler(BodyHandler.create())
+      .handler(this::updateSwaggerJson);
+    vertx.createHttpServer()
+      .requestHandler(router)
+      .listen(3001)
+      .onSuccess(http -> {
         System.out.println("HTTP server started on port " + http.actualPort());
+        startPromise.complete();
       }).onFailure(startPromise::fail);
   }
 
@@ -58,16 +67,71 @@ public class MainVerticle extends AbstractVerticle {
     });
   }
 
+
+  /**
+   * 获取服务列表
+   *
+   * @param ctx ctx
+   */
+  private void getServices(RoutingContext ctx) {
+    FileSystem fileSystem = vertx.fileSystem();
+    fileSystem.readDir(".", "[\\u2E80-\\u9FFF]+\\.json")
+      .onSuccess(files -> {
+        JsonArray array = new JsonArray();
+        for (String file : files) {
+          file = new File(file).getName();
+          array.add(file.substring(0, file.length() - ".json".length()));
+        }
+        ctx.response().end(array.encode());
+      }).onFailure(e -> ctx.response().setStatusCode(500).end(e.getMessage()));
+  }
+
+  /**
+   * 创建服务
+   *
+   * @param ctx ctx
+   */
+  private void createService(RoutingContext ctx) {
+    String name = ctx.request().getParam("name");
+    if (null == name || 0 == name.length()) {
+      ctx.response().setStatusCode(500).end();
+      return;
+    }
+    FileSystem fileSystem = vertx.fileSystem();
+    String fileName = name + ".json";
+    fileSystem.createFile(fileName)
+      .compose(Void -> fileSystem.writeFile(fileName, defaultSwaggerJson))
+      .onSuccess(Void -> ctx.end())
+      .onFailure(Void -> ctx.response().setStatusCode(500).end());
+  }
+
+  /**
+   * 删除服务
+   *
+   * @param ctx ctx
+   */
+  private void deleteService(RoutingContext ctx) {
+    String name = ctx.request().getParam("name");
+    if (null == name || 0 == name.length()) {
+      ctx.response().setStatusCode(500).end();
+      return;
+    }
+    vertx.fileSystem().delete(name + ".json")
+      .onSuccess(Void -> ctx.end())
+      .onFailure(Void -> ctx.response().setStatusCode(500).end());
+  }
+
   /**
    * 获取当前的json
    *
    * @param ctx ctx
    */
   private void getSwaggerJson(RoutingContext ctx) {
-    Vertx vertx = ctx.vertx();
+    String serviceName = ctx.pathParam("serviceName");
+    HttpServerResponse response = ctx.response();
     FileSystem fileSystem = vertx.fileSystem();
-    fileSystem.readFile(FileName).onComplete(ar -> {
-      HttpServerResponse response = ctx.response();
+    fileSystem.readFile(serviceName + ".json").onComplete(ar -> {
+
       if (ar.succeeded()) {
         response.putHeader("Content-Type", "application/json");
         response.end(ar.result());
@@ -78,17 +142,13 @@ public class MainVerticle extends AbstractVerticle {
     });
   }
 
-  private Future<Void> writeSwaggerJson(Vertx vertx, Buffer buffer) {
-    FileSystem fileSystem = vertx.fileSystem();
-    return fileSystem.writeFile("swagger.json", buffer);
-  }
-
   /**
    * 更新SwaggerJson
    *
    * @param ctx ctx
    */
   private void updateSwaggerJson(RoutingContext ctx) {
+    String serviceName = ctx.pathParam("serviceName");
     Set<FileUpload> uploads = ctx.fileUploads();
     FileUpload fileUpload = uploads.iterator().next();
     FileSystem fileSystem = vertx.fileSystem();
@@ -96,7 +156,7 @@ public class MainVerticle extends AbstractVerticle {
     fileSystem
       .readFile(fileUpload.uploadedFileName())
       // 将上传的文件写入
-      .compose(buffer -> fileSystem.writeFile(FileName, buffer))
+      .compose(buffer -> fileSystem.writeFile(serviceName + ".json", buffer))
       // 删除上传的文件
       .compose(Void -> fileSystem.delete(fileUpload.uploadedFileName()))
       .onComplete(ar -> {
