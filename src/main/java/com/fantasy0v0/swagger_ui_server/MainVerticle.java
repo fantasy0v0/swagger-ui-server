@@ -17,7 +17,7 @@ import java.util.Set;
 
 public class MainVerticle extends AbstractVerticle {
 
-  private final String FileName = "swagger.json";
+  private final String FileName = "swagger.yaml";
 
   private Buffer defaultSwaggerJson;
 
@@ -40,10 +40,10 @@ public class MainVerticle extends AbstractVerticle {
     // 删除服务
     router.delete("/services").handler(this::deleteService);
     // 获取对应服务的json文件
-    router.getWithRegex("/(?<serviceName>.+)\\.json")
+    router.getWithRegex("/(?<serviceName>.+)\\.yaml")
       .handler(this::getSwaggerJson);
     // 更新对应的JSON文件
-    router.postWithRegex("/(?<serviceName>.+)\\.json")
+    router.postWithRegex("/(?<serviceName>.+)\\.yaml")
       .handler(BodyHandler.create())
       .handler(this::updateSwaggerJson);
     vertx.createHttpServer()
@@ -75,12 +75,12 @@ public class MainVerticle extends AbstractVerticle {
    */
   private void getServices(RoutingContext ctx) {
     FileSystem fileSystem = vertx.fileSystem();
-    fileSystem.readDir(".", "[\\u2E80-\\u9FFF]+\\.json")
+    fileSystem.readDir(".", "[\\u2E80-\\u9FFF]+\\.yaml")
       .onSuccess(files -> {
         JsonArray array = new JsonArray();
         for (String file : files) {
           file = new File(file).getName();
-          array.add(file.substring(0, file.length() - ".json".length()));
+          array.add(file.substring(0, file.length() - ".yaml".length()));
         }
         ctx.response().end(array.encode());
       }).onFailure(e -> ctx.response().setStatusCode(500).end(e.getMessage()));
@@ -98,7 +98,7 @@ public class MainVerticle extends AbstractVerticle {
       return;
     }
     FileSystem fileSystem = vertx.fileSystem();
-    String fileName = name + ".json";
+    String fileName = name + ".yaml";
     fileSystem.createFile(fileName)
       .compose(Void -> fileSystem.writeFile(fileName, defaultSwaggerJson))
       .onSuccess(Void -> ctx.end())
@@ -116,7 +116,7 @@ public class MainVerticle extends AbstractVerticle {
       ctx.response().setStatusCode(500).end();
       return;
     }
-    vertx.fileSystem().delete(name + ".json")
+    vertx.fileSystem().delete(name + ".yaml")
       .onSuccess(Void -> ctx.end())
       .onFailure(Void -> ctx.response().setStatusCode(500).end());
   }
@@ -130,10 +130,10 @@ public class MainVerticle extends AbstractVerticle {
     String serviceName = ctx.pathParam("serviceName");
     HttpServerResponse response = ctx.response();
     FileSystem fileSystem = vertx.fileSystem();
-    fileSystem.readFile(serviceName + ".json").onComplete(ar -> {
+    fileSystem.readFile(serviceName + ".yaml").onComplete(ar -> {
 
       if (ar.succeeded()) {
-        response.putHeader("Content-Type", "application/json");
+        response.putHeader("Content-Type", "application/x-yaml");
         response.end(ar.result());
       } else {
         response.setStatusCode(500);
@@ -156,7 +156,7 @@ public class MainVerticle extends AbstractVerticle {
     fileSystem
       .readFile(fileUpload.uploadedFileName())
       // 将上传的文件写入
-      .compose(buffer -> fileSystem.writeFile(serviceName + ".json", buffer))
+      .compose(buffer -> fileSystem.writeFile(serviceName + ".yaml", buffer))
       // 删除上传的文件
       .compose(Void -> fileSystem.delete(fileUpload.uploadedFileName()))
       .onComplete(ar -> {

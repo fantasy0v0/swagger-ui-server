@@ -31,8 +31,8 @@ function App() {
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     let file = e.target.files?.item(0);
     let formData = new FormData();
-    formData.append('json', file!);
-    fetch("/" + currentService + ".json", {
+    formData.append('yaml', file!);
+    fetch("/" + currentService + ".yaml", {
       method: "POST",
       body: formData
     }).then(res => {
@@ -97,12 +97,12 @@ function App() {
             { serviceOptions }
           </select>
           &nbsp;&nbsp;&nbsp;&nbsp;
-          <input type="file" accept="application/json" onChange={ handleFileChange }/>
+          <input type="file" accept="application/x-yaml,application/json" onChange={ handleFileChange }/>
           &nbsp;&nbsp;&nbsp;&nbsp;
           <button onClick={ deleteService }>删除</button>
         </div>
       </fieldset>,
-      <SwaggerUI url={ "/" + currentService + ".json" }/>
+      <SwaggerUI url={ "/" + currentService + ".yaml" }/>
     ]
   } else {
     body = [ <span>加载中</span> ]
